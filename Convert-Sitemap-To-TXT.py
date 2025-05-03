@@ -75,6 +75,24 @@ def show_popup(title, message):
     ctypes.windll.user32.MessageBoxW(0, message, title, MB_OK)
 
 # -----------------------------------------------------------------------------
+# Function: select_output_directory
+# Purpose : Opens a Windows-friendly dialog box to choose where to save output
+# -----------------------------------------------------------------------------
+def select_output_directory():
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.attributes('-topmost', True)  # Bring dialog to front
+    root.withdraw()  # Hide the root window
+
+    selected_folder = filedialog.askdirectory(
+        title="📁 Select Folder to Save Output Folder"
+    )
+    root.destroy()
+    return selected_folder
+
+# -----------------------------------------------------------------------------
 # Function: main
 # Purpose : Orchestrates validation, scraping, logging, and output writing
 # -----------------------------------------------------------------------------
@@ -95,8 +113,19 @@ def main(input_txt, processes=6):
 
     base_name = os.path.splitext(os.path.basename(input_txt))[0]
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    output_txt = f"{base_name}-{timestamp}-full_text_output.txt"
-    log_txt = f"{base_name}-{timestamp}-log.txt"
+
+    # Prompt user to choose output folder location
+    output_root = select_output_directory()
+    if not output_root:
+        print("❌ No output folder selected. Exiting.")
+        return
+
+    # Create subfolder: [chosen]/[timestamp]-[base_name]/
+    final_output_dir = os.path.join(output_root, f"{timestamp}-{base_name}")
+    os.makedirs(final_output_dir, exist_ok=True)
+
+    output_txt = os.path.join(final_output_dir, f"{base_name}-full_text_output.txt")
+    log_txt = os.path.join(final_output_dir, f"{base_name}-log.txt")
 
     log_lines = []
     valid_urls = []
