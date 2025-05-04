@@ -1,0 +1,5 @@
+build/ 
+dist/ 
+*.spec 
+*-full_text_output.txt 
+*-log.txt 
