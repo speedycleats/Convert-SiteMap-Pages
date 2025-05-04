@@ -3,10 +3,10 @@ from bs4 import BeautifulSoup
 import os
 import re
 import sys
-import multiprocessing
-from functools import partial
 from datetime import datetime
 import ctypes
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
 
 # Markdown-style formatting for common HTML tags
 MARKDOWN_TAGS = {
@@ -20,7 +20,7 @@ MARKDOWN_TAGS = {
 
 # -----------------------------------------------------------------------------
 # Function: is_valid_url
-# Purpose : Checks if a URL is properly formatted and reachable
+# Purpose : Validates if the provided URL is in proper format and reachable
 # -----------------------------------------------------------------------------
 def is_valid_url(url, log_lines):
     pattern = re.compile(r'^https?://.+')
@@ -40,7 +40,7 @@ def is_valid_url(url, log_lines):
 
 # -----------------------------------------------------------------------------
 # Function: extract_text_by_tag
-# Purpose : Scrapes a page and formats content using Markdown
+# Purpose : Downloads and parses HTML content, formats selected tags into Markdown
 # -----------------------------------------------------------------------------
 def extract_text_by_tag(url, tags_to_extract):
     try:
@@ -52,7 +52,7 @@ def extract_text_by_tag(url, tags_to_extract):
     soup = BeautifulSoup(response.text, 'html.parser')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     output = [
-        f"\n---\n### 🧭 URL: [{url}]({url})",
+        f"\n---\n### 🧽 URL: [{url}]({url})",
         f"🕒 Scraped at: {timestamp}\n"
     ]
 
@@ -68,7 +68,7 @@ def extract_text_by_tag(url, tags_to_extract):
 
 # -----------------------------------------------------------------------------
 # Function: show_popup
-# Purpose : Windows-native message box on completion
+# Purpose : Displays a Windows-native popup message box
 # -----------------------------------------------------------------------------
 def show_popup(title, message):
     MB_OK = 0x0
@@ -76,79 +76,101 @@ def show_popup(title, message):
 
 # -----------------------------------------------------------------------------
 # Function: select_output_directory
-# Purpose : Opens a Windows-friendly dialog box to choose where to save output
+# Purpose : Opens GUI prompt for selecting the parent directory for output
 # -----------------------------------------------------------------------------
 def select_output_directory():
-    import tkinter as tk
-    from tkinter import filedialog
-
     root = tk.Tk()
-    root.attributes('-topmost', True)  # Bring dialog to front
-    root.withdraw()  # Hide the root window
+    root.withdraw()
+    folder = filedialog.askdirectory(title="📁 Select Folder to Save Output Folder")
+    root.destroy()
+    return folder
 
-    selected_folder = filedialog.askdirectory(
-        title="📁 Select Folder to Save Output Folder"
+# -----------------------------------------------------------------------------
+# Function: select_input_file
+# Purpose : Opens GUI prompt for selecting the input .txt file with sitemap URLs
+# -----------------------------------------------------------------------------
+def select_input_file():
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    file_path = filedialog.askopenfilename(
+        title="📄 Select your sitemap .txt file",
+        filetypes=[("Text Files", "*.txt")]
     )
     root.destroy()
-    return selected_folder
+    return file_path
+
+# -----------------------------------------------------------------------------
+# Function: update_progress
+# Purpose : Updates progress bar GUI during scraping process
+# -----------------------------------------------------------------------------
+def update_progress(progress_var, progress_bar, current, total):
+    progress = int((current / total) * 100)
+    progress_var.set(progress)
+    progress_bar.update()
 
 # -----------------------------------------------------------------------------
 # Function: main
-# Purpose : Orchestrates validation, scraping, logging, and output writing
+# Purpose : Main controller that handles reading URLs, validation, scraping,
+#           progress bar updates, file output, and final notification
 # -----------------------------------------------------------------------------
-def main(input_txt, processes=6):
-    # Terminal color codes for Windows PowerShell
-    GREEN = '\033[92m'
-    CYAN = '\033[96m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    RESET = '\033[0m'
+def main(input_txt):
+    log_lines = []
+    valid_urls = []
 
-    if not os.path.exists(input_txt):
-        print(f"{RED}❌ Input file not found: {input_txt}{RESET}")
-        return
-
+    # Read URLs from the input file
     with open(input_txt, 'r', encoding='utf-8') as f:
         urls = [line.strip() for line in f if line.strip()]
 
     base_name = os.path.splitext(os.path.basename(input_txt))[0]
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # Prompt user to choose output folder location
+    # Ask user to select output folder location
     output_root = select_output_directory()
     if not output_root:
-        print("❌ No output folder selected. Exiting.")
+        show_popup("❌ Cancelled", "No output folder selected. Exiting.")
         return
 
-    # Create subfolder: [chosen]/[timestamp]-[base_name]/
+    # Create timestamped subfolder to store output
     final_output_dir = os.path.join(output_root, f"{timestamp}-{base_name}")
     os.makedirs(final_output_dir, exist_ok=True)
 
     output_txt = os.path.join(final_output_dir, f"{base_name}-full_text_output.txt")
     log_txt = os.path.join(final_output_dir, f"{base_name}-log.txt")
 
-    log_lines = []
-    valid_urls = []
+    # Initialize progress window
+    root = tk.Tk()
+    root.title("Scraping in Progress")
+    tk.Label(root, text="Scraping URLs...").pack(pady=10)
+    progress_var = tk.IntVar()
+    progress_bar = ttk.Progressbar(root, length=300, variable=progress_var, maximum=100)
+    progress_bar.pack(pady=20)
+    root.update()
 
-    print(f"{CYAN}\n🔎 Validating {len(urls)} URLs...\n{RESET}")
-    for url in urls:
+    # Validate URLs
+    for i, url in enumerate(urls):
         if is_valid_url(url, log_lines):
             valid_urls.append(url)
+        update_progress(progress_var, progress_bar, i+1, len(urls))
 
-    print(f"{GREEN}\n✅ {len(valid_urls)} valid URLs found. Beginning scrape...\n{RESET}")
+    # Exit if no valid URLs found
     if not valid_urls:
         log_lines.append(f"[{datetime.now()}] ❌ No valid URLs to process.")
         with open(log_txt, 'w', encoding='utf-8') as log_file:
             log_file.write('\n'.join(log_lines))
-        print(f"{RED}❌ No valid URLs. Exiting.{RESET}")
+        show_popup("❌ No Valid URLs", "No valid URLs found. Exiting.")
+        root.destroy()
         return
 
-    with multiprocessing.Pool(processes=processes) as pool:
-        extract_partial = partial(extract_text_by_tag, tags_to_extract=list(MARKDOWN_TAGS.keys()))
-        results = pool.map(extract_partial, valid_urls)
+    # Scrape each valid URL
+    results = []
+    for i, url in enumerate(valid_urls):
+        results.append(extract_text_by_tag(url, list(MARKDOWN_TAGS.keys())))
+        update_progress(progress_var, progress_bar, i+1, len(valid_urls))
 
+    # Generate and write summary report
     summary_lines = [
-        "## 🧾 Summary Report\n",
+        "## 📟 Summary Report\n",
         f"- 📅 Run date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"- 📄 Input file: {os.path.basename(input_txt)}",
         f"- 🔗 Total URLs scanned: {len(urls)}",
@@ -160,48 +182,22 @@ def main(input_txt, processes=6):
     with open(output_txt, 'w', encoding='utf-8') as f:
         f.write('\n'.join(summary_lines) + '\n\n' + '\n\n'.join(results))
 
+    # Save log file
     log_lines.append(f"[{datetime.now()}] ✅ Scraping complete. Output saved to {output_txt}")
     with open(log_txt, 'w', encoding='utf-8') as log_file:
         log_file.write('\n'.join(log_lines))
 
-    # -----------------------------------------------------------------------------
-    # Section: Final Output and User Notification
-    # Purpose : Print full file paths, open them, and display a popup summary
-    # -----------------------------------------------------------------------------
-    output_full_path = os.path.abspath(output_txt)
-    log_full_path = os.path.abspath(log_txt)
-    folder_path = os.path.dirname(output_full_path)
-
-    print(f"{GREEN}\n📄 Done! Output saved to: {output_full_path}{RESET}")
-    print(f"{CYAN}🧾 Log saved to: {log_full_path}{RESET}")
-    print(f"{YELLOW}📁 Output folder: {folder_path}{RESET}")
-    print(f"\n📋 You can copy the above path to access files manually.\n")
-
-    try:
-        os.system(f'start "" "{output_full_path}"')
-        os.system(f'start "" "{log_full_path}"')
-    except Exception as e:
-        print(f"{YELLOW}⚠️ Could not open files automatically: {e}{RESET}")
-
-    popup_message = (
-        "✅ Scraping Complete\n\n"
-        f"📄 Output file:\n{output_full_path}\n\n"
-        f"🧾 Log file:\n{log_full_path}\n\n"
-        f"📁 Folder:\n{folder_path}\n\n"
-        "You can right-click this message and press Ctrl+C to copy."
-    )
-
-    show_popup("✅ Scraping Complete", popup_message)
-
+    # Close progress window and notify user
+    root.destroy()
+    show_popup("✅ Scraping Complete", f"Output folder:\n{final_output_dir}")
 
 # -----------------------------------------------------------------------------
 # Execution Entry Point
-# Purpose : Allows drag-and-drop execution or manual prompting
+# Purpose : Starts the script via file selector and initiates main process
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        input_file = sys.argv[1]
-    else:
-        input_file = input("Enter path to .txt file with sitemap URLs:\n> ").strip()
-
+    input_file = select_input_file()
+    if not input_file:
+        show_popup("❌ Cancelled", "No input file selected. Exiting.")
+        sys.exit()
     main(input_file)
