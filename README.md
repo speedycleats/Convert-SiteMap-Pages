@@ -1,28 +1,61 @@
-# 🕸️ Convert Sitemap Pages to Full TXT
+# 🧭 Convert Sitemap Pages to Markdown
 
-This Python utility takes a plain text list of sitemap URLs, scrapes each page, and exports clean, markdown-formatted `.txt` files — ideal for archiving, search indexing, or ingestion into tools like ChatGPT.
-
----
-
-## ✅ Features
-
-- 🌐 **Input**: `.txt` file with one URL per line
-- ✅ **Validates** each URL for format and reachability
-- ⚙️ **Multiprocessing** support for fast scraping
-- 🧾 **Markdown-formatted output** organized by tag (h1, h2, p, li)
-- 📊 **Summary section** at the top of each output
-- 🗂 **Separate log file** with HTTP status and exceptions
-- 🪟 **GUI folder picker** for saving output to a custom location
-- 🧷 **Output organized into a timestamped folder**
-- 🎨 **Color-coded console output**
-- 🪄 **Popup notification** when scraping is complete
+A user-friendly Windows application to scrape and convert pages from a sitemap `.txt` file into a single, neatly formatted Markdown `.txt` file. No Python experience required—just drag, click, and go.
 
 ---
 
-## 📂 Input Format
+## 📦 Features
 
-Your `.txt` file should contain one sitemap URL per line:
+- ✅ Drag-and-drop `.exe` support
+- 🧠 Auto-validates URLs
+- ✨ GUI folder picker for input and output
+- 📊 Real-time progress bar
+- 🧾 Markdown-style formatting
+- 📄 Log + Summary report generation
+- 🔒 Packaged with PyInstaller (no dependencies required)
 
-```txt
-https://example.com/page1
-https://example.com/page2
+---
+
+## 🛠 How to Use
+
+1. Run the `Convert-Sitemap-To-TXT.exe` from the `dist/` folder
+2. Select your input `.txt` sitemap file (1 URL per line)
+3. Choose an output folder when prompted
+4. Watch the progress bar
+5. Get both a full Markdown-formatted output and a scraping log
+
+---
+
+## 📁 Example Output
+/output-folder/
+├── sitemap-url-list-20250503-full_text_output.txt
+├── sitemap-url-list-20250503-log.txt
+
+
+---
+
+## 📂 Building from Source
+
+1. Clone this repo  
+   `git clone https://github.com/speedycleats/Convert-SiteMap-Pages.git`
+2. Create virtual environment  
+   `python -m venv venv && venv\Scripts\activate`
+3. Install dependencies  
+   `pip install -r requirements.txt`
+4. Package with PyInstaller  
+   `pyinstaller --onefile --windowed --icon=NotebookPencilIcon.ico Convert-Sitemap-To-TXT.py`
+
+---
+
+## 🚀 Roadmap
+
+- [ ] Add estimated time remaining
+- [ ] Support `.xml` sitemap parsing
+- [ ] Cross-platform builds (macOS/Linux)
+
+---
+
+## 📜 License
+
+MIT License. Use responsibly.
+
